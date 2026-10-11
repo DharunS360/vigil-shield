@@ -1,0 +1,24 @@
+id: VS-006
+title: RDP Brute Force Attack
+description: Detects multiple failed RDP login attempts
+status: stable
+level: high
+author: Vigil Shield
+date: 2026-10-11
+
+logsource:
+  category: authentication
+  product: windows
+
+detection:
+  selection:
+    signature: "*rdp*brute*"
+  condition: selection
+
+tags:
+  - attack.credential_access
+  - attack.t1110
+  - attack.t1110.001
+
+references:
+  - https://attack.mitre.org/techniques/T1110/

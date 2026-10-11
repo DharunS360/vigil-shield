@@ -3,9 +3,10 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
 
+
 class Alert(Base):
     __tablename__ = "alerts"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     src_ip = Column(String(45), index=True)
@@ -20,12 +21,22 @@ class Alert(Base):
     source_type = Column(String(50))
     raw_data = Column(JSON)
     risk_score = Column(Float, default=0.0)
-    incident_id = Column(Integer, ForeignKey("incidents.id", ondelete="SET NULL"))
+
+    # Enrichment
+    enrichment_data = Column(JSON, nullable=True)
+    enriched_at = Column(DateTime, nullable=True)
+    risk_level = Column(String(20), nullable=True)
+
+    # Incident linking
+    incident_id = Column(
+        Integer, ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
+    )
     incident = relationship("Incident", back_populates="alerts")
+
     status = Column(String(20), default="new")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -41,5 +52,9 @@ class Alert(Base):
             "mitre_technique": self.mitre_technique,
             "source_type": self.source_type,
             "risk_score": self.risk_score or 0,
-            "status": self.status or "new"
+            "risk_level": self.risk_level,
+            "enrichment_data": self.enrichment_data,
+            "enriched_at": self.enriched_at.isoformat() if self.enriched_at else None,
+            "incident_id": self.incident_id,
+            "status": self.status or "new",
         }

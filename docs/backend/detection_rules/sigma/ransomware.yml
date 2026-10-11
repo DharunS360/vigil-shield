@@ -1,0 +1,23 @@
+id: VS-007
+title: Ransomware File Encryption
+description: Detects mass file encryption typical of ransomware
+status: stable
+level: critical
+author: Vigil Shield
+date: 2026-10-11
+
+logsource:
+  category: file_event
+  product: windows
+
+detection:
+  selection:
+    signature: "*ransomware*"
+  condition: selection
+
+tags:
+  - attack.impact
+  - attack.t1486
+
+references:
+  - https://attack.mitre.org/techniques/T1486/

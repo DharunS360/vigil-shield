@@ -1,0 +1,24 @@
+id: VS-004
+title: SMB Lateral Movement
+description: Detects suspicious SMB connections indicating lateral movement
+status: stable
+level: high
+author: Vigil Shield
+date: 2026-10-11
+
+logsource:
+  category: network_connection
+  product: windows
+
+detection:
+  selection:
+    signature: "*smb*"
+  condition: selection
+
+tags:
+  - attack.lateral_movement
+  - attack.t1021
+  - attack.t1021.002
+
+references:
+  - https://attack.mitre.org/techniques/T1021/002/

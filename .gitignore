@@ -74,3 +74,13 @@ temp/
 # === Python venv locations ===
 docs/backend/venv/
 venv/
+# Temporary scripts
+create_casebook*.ps1
+*.bak
+*.log
+__pycache__/
+*.pyc
+*.db
+.env
+reports/*.pdf
+uploads/

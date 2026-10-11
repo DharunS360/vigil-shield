@@ -1,107 +1,244 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, Query
+﻿"""
+Vigil Shield - Alerts API
+List, filter, retrieve, create alerts with auto-enrichment.
+"""
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy import desc, func
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+import asyncio
 
 from app.core.database import get_db
 from app.models.alert import Alert
+from app.services.ioc_enrichment import ioc_enricher
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/alerts", tags=["alerts"])
 
-@router.get("/alerts")
-async def get_alerts(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    severity: Optional[str] = None,
-    db: Session = Depends(get_db)
+
+# ============================================================
+# Pydantic Schemas
+# ============================================================
+class AlertCreate(BaseModel):
+    src_ip: str
+    dst_ip: Optional[str] = "0.0.0.0"
+    src_port: Optional[int] = None
+    dst_port: Optional[int] = None
+    protocol: Optional[str] = None
+    signature: Optional[str] = "Unknown"
+    severity: str = "low"
+    category: Optional[str] = "Unknown"
+    mitre_technique: Optional[str] = None
+    source_type: Optional[str] = "Manual"
+    description: Optional[str] = None
+    auto_enrich: Optional[bool] = True
+
+
+# ============================================================
+# Helper: Auto-enrich alert
+# ============================================================
+async def auto_enrich_alert(alert_id: int, ip: str, db: Session):
+    """Background task to enrich alert with threat intelligence."""
+    try:
+        if not ip or ip in ("0.0.0.0", "127.0.0.1"):
+            return
+
+        # Run enrichment
+        enrichment = await ioc_enricher.enrich_ip(ip)
+
+        # Update DB
+        alert = db.query(Alert).filter(Alert.id == alert_id).first()
+        if alert:
+            alert.enrichment_data = enrichment
+            alert.enriched_at = datetime.utcnow()
+            alert.risk_score = enrichment.get("risk_score", 0)
+            alert.risk_level = enrichment.get("risk_level", "low")
+            db.commit()
+            print(f"✅ Auto-enriched alert #{alert_id} (IP: {ip})")
+    except Exception as e:
+        print(f"❌ Auto-enrich failed for alert #{alert_id}: {e}")
+
+
+# ============================================================
+# GET /api/v1/alerts - List all alerts
+# ============================================================
+@router.get("")
+def list_alerts(
+    severity: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(100, le=500),
+    offset: int = Query(0),
+    db: Session = Depends(get_db),
 ):
-    'Get all alerts with pagination and filters'
+    """List alerts with optional filters."""
     query = db.query(Alert)
+
     if severity:
-        query = query.filter(Alert.severity == severity)
-    total = query.count()
-    alerts = query.order_by(Alert.timestamp.desc()).offset(skip).limit(limit).all()
+        query = query.filter(func.lower(Alert.severity) == severity.lower())
+    if status:
+        query = query.filter(Alert.status == status)
+
+    alerts = (
+        query.order_by(desc(Alert.timestamp)).offset(offset).limit(limit).all()
+    )
+
+    total = db.query(func.count(Alert.id)).scalar()
+
     return {
         "status": "success",
+        "total": total,
+        "count": len(alerts),
         "data": [a.to_dict() for a in alerts],
-        "pagination": {"skip": skip, "limit": limit, "total": total}
     }
 
-@router.post("/alerts")
-async def create_alert(
-    alert_data: dict,
-    db: Session = Depends(get_db)
-):
-    'Create a new alert for testing/simulation'
-    try:
-        alert = Alert(
-            timestamp=datetime.utcnow(),
-            src_ip=alert_data.get('src_ip', '0.0.0.0'),
-            dst_ip=alert_data.get('dst_ip', '0.0.0.0'),
-            signature=alert_data.get('signature', 'Unknown'),
-            severity=alert_data.get('severity', 'medium'),
-            category=alert_data.get('category', 'Unknown'),
-            source_type=alert_data.get('source_type', 'test'),
-            status='new'
+
+# ============================================================
+# GET /api/v1/alerts/stats/summary
+# ============================================================
+@router.get("/stats/summary")
+def get_stats_summary(db: Session = Depends(get_db)):
+    """Get alert statistics summary."""
+    total = db.query(func.count(Alert.id)).scalar() or 0
+
+    breakdown = {}
+    for sev in ["critical", "high", "medium", "low"]:
+        count = (
+            db.query(func.count(Alert.id))
+            .filter(func.lower(Alert.severity) == sev)
+            .scalar()
+            or 0
         )
-        db.add(alert)
+        breakdown[sev] = count
+
+    enriched_count = (
+        db.query(func.count(Alert.id)).filter(Alert.enriched_at.isnot(None)).scalar()
+        or 0
+    )
+
+    return {
+        "status": "success",
+        "total": total,
+        "enriched": enriched_count,
+        "breakdown": breakdown,
+    }
+
+
+# ============================================================
+# GET /api/v1/alerts/{alert_id}
+# ============================================================
+@router.get("/{alert_id}")
+def get_alert(alert_id: int, db: Session = Depends(get_db)):
+    """Get a single alert by ID."""
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    return {"status": "success", "data": alert.to_dict()}
+
+
+# ============================================================
+# POST /api/v1/alerts - Create new alert (WITH AUTO-ENRICH)
+# ============================================================
+@router.post("", status_code=201)
+async def create_alert(
+    payload: AlertCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Create a new alert and optionally auto-enrich it."""
+    try:
+        new_alert = Alert(
+            src_ip=payload.src_ip,
+            dst_ip=payload.dst_ip or "0.0.0.0",
+            src_port=payload.src_port,
+            dst_port=payload.dst_port,
+            protocol=payload.protocol,
+            signature=payload.signature or "Unknown",
+            severity=payload.severity.lower(),
+            category=payload.category or "Unknown",
+            mitre_technique=payload.mitre_technique,
+            source_type=payload.source_type or "Manual",
+            timestamp=datetime.utcnow(),
+            risk_score=0,
+            status="new",
+        )
+
+        db.add(new_alert)
         db.commit()
-        db.refresh(alert)
+        db.refresh(new_alert)
+
+        # Schedule auto-enrichment as background task
+        if payload.auto_enrich and new_alert.src_ip:
+            background_tasks.add_task(
+                auto_enrich_alert, new_alert.id, new_alert.src_ip, db
+            )
+
         return {
             "status": "success",
-            "message": "Alert created successfully",
-            "data": alert.to_dict()
+            "message": "Alert created" + (
+                " (enrichment running in background)" if payload.auto_enrich else ""
+            ),
+            "data": new_alert.to_dict(),
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create alert: {str(e)}"
+        )
 
-@router.get("/alerts/stats/summary")
-async def get_alert_stats(db: Session = Depends(get_db)):
-    'Get alert statistics for dashboard'
-    total = db.query(Alert).count()
-    critical = db.query(Alert).filter(Alert.severity == "critical").count()
-    high = db.query(Alert).filter(Alert.severity == "high").count()
-    medium = db.query(Alert).filter(Alert.severity == "medium").count()
-    low = db.query(Alert).filter(Alert.severity == "low").count()
-    return {
-        "status": "success",
-        "data": {
-            "total": total,
-            "critical": critical,
-            "high": high,
-            "medium": medium,
-            "low": low
-        }
-    }
 
-@router.get("/alerts/{alert_id}")
-async def get_alert(alert_id: int, db: Session = Depends(get_db)):
-    'Get single alert by ID'
+# ============================================================
+# POST /api/v1/alerts/{alert_id}/enrich - Manual enrichment
+# ============================================================
+@router.post("/{alert_id}/enrich")
+async def enrich_alert_manually(alert_id: int, db: Session = Depends(get_db)):
+    """Manually trigger enrichment for an alert."""
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
-    return {
-        "status": "success",
-        "data": alert.to_dict()
-    }
 
-@router.put("/alerts/{alert_id}/status")
-async def update_alert_status(
+    if not alert.src_ip or alert.src_ip in ("0.0.0.0", "127.0.0.1"):
+        raise HTTPException(
+            status_code=400, detail="Invalid source IP for enrichment"
+        )
+
+    try:
+        enrichment = await ioc_enricher.enrich_ip(alert.src_ip)
+        alert.enrichment_data = enrichment
+        alert.enriched_at = datetime.utcnow()
+        alert.risk_score = enrichment.get("risk_score", 0)
+        alert.risk_level = enrichment.get("risk_level", "low")
+        db.commit()
+        db.refresh(alert)
+
+        return {"status": "success", "data": alert.to_dict()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Enrichment failed: {str(e)}")
+
+
+# ============================================================
+# PUT /api/v1/alerts/{alert_id}/status
+# ============================================================
+@router.put("/{alert_id}/status")
+def update_alert_status(
     alert_id: int,
-    status: str,
-    db: Session = Depends(get_db)
+    status: str = Query(..., description="New status"),
+    db: Session = Depends(get_db),
 ):
-    'Update alert status (investigating, resolved, false_positive)'
+    """Update an alert's status."""
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
+
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
+
     alert.status = status
-    alert.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(alert)
+
     return {
         "status": "success",
-        "message": f"Alert status updated to {status}",
-        "data": alert.to_dict()
+        "message": f"Alert {alert_id} status updated to '{status}'",
+        "data": alert.to_dict(),
     }

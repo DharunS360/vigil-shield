@@ -1,0 +1,23 @@
+id: VS-008
+title: Phishing Email Detected
+description: Detects suspicious email with malicious indicators
+status: stable
+level: high
+author: Vigil Shield
+date: 2026-10-11
+
+logsource:
+  category: email
+  product: exchange
+
+detection:
+  selection:
+    signature: "*phishing*"
+  condition: selection
+
+tags:
+  - attack.initial_access
+  - attack.t1566
+
+references:
+  - https://attack.mitre.org/techniques/T1566/

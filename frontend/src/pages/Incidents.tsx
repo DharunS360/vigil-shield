@@ -1,37 +1,44 @@
-import React, { useEffect, useState } from 'react';
-import { incidentsApi } from '../api/client';
-import axios from 'axios';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiClient } from "../api/client";
 
 interface Incident {
   id: number;
   title: string;
-  description: string;
+  description?: string;
   severity: string;
-  risk_score: number;
-  mitre_technique: string;
-  src_ip: string;
-  alert_count: number;
   status: string;
-  created_at: string;
+  priority?: string;
+  assignee?: string;
+  triage_decision?: string;
+  rule_id?: string;
+  rule_name?: string;
+  mitre_tactics?: string[];
+  mitre_techniques?: string[];
+  detected_at?: string;
+  resolved_at?: string;
+  alert_count?: number;
 }
 
-const Incidents: React.FC = () => {
+const Incidents = () => {
+  const navigate = useNavigate();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
   const [correlating, setCorrelating] = useState(false);
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    fetchIncidents();
-  }, []);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const fetchIncidents = async () => {
     try {
-      const response = await incidentsApi.getAll();
-      setIncidents(response.data.data || []);
-    } catch (error) {
-      console.error('Error fetching incidents:', error);
+      setLoading(true);
+      const res = await apiClient.get("/incidents");
+      const data = res.data;
+      const list = Array.isArray(data) ? data : data.data || [];
+      setIncidents(list);
+      setError(null);
+    } catch (err: any) {
+      console.error("Failed to fetch incidents:", err);
+      setError(err?.message || "Failed to load incidents");
     } finally {
       setLoading(false);
     }
@@ -39,240 +46,300 @@ const Incidents: React.FC = () => {
 
   const runCorrelation = async () => {
     setCorrelating(true);
-    setMessage('');
+    setError(null);
     try {
-      const response = await axios.get('http://localhost:8000/api/v1/correlate');
-      console.log('Correlation response:', response.data);
-      
-      if (response.data && response.data.data) {
-        setIncidents(response.data.data);
-      }
-      
-      setMessage('✅ Correlation completed! ' + (response.data.incidents_created || 0) + ' incidents created.');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      console.error('Error running correlation:', error);
-      setMessage('❌ Correlation failed!');
+      const res = await apiClient.post("/incidents/correlate");
+      const data = res.data;
+      alert(
+        `✅ Correlation complete!\n${data.incidents_created || 0} incidents created\n${data.total_alerts_analyzed || 0} alerts analyzed`
+      );
+      fetchIncidents();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail || err?.message || "Correlation failed";
+      setError(msg);
+      alert(`❌ ${msg}`);
     } finally {
       setCorrelating(false);
     }
   };
 
-  const updateIncidentStatus = async (incidentId: number, newStatus: string) => {
-    try {
-      const response = await axios.put(
-        'http://localhost:8000/api/v1/incidents/' + incidentId + '?status=' + newStatus
-      );
-      
-      if (response.data) {
-        // Update local state
-        setIncidents(prevIncidents =>
-          prevIncidents.map(incident =>
-            incident.id === incidentId
-              ? { ...incident, status: newStatus }
-              : incident
-          )
-        );
-        
-        setMessage('✅ Incident #' + incidentId + ' updated to ' + newStatus);
-        setTimeout(() => setMessage(''), 3000);
-        fetchIncidents();
-      }
-    } catch (error) {
-      console.error('Error updating incident:', error);
-      setMessage('❌ Failed to update incident #' + incidentId);
-      setTimeout(() => setMessage(''), 3000);
+  useEffect(() => {
+    fetchIncidents();
+  }, []);
+
+  const filtered = incidents.filter((inc) => {
+    if (statusFilter === "all") return true;
+    return inc.status === statusFilter;
+  });
+
+  const getSeverityColor = (sev?: string) => {
+    switch (sev?.toLowerCase()) {
+      case "critical":
+        return { bg: "#7f1d1d", text: "#ef4444", border: "#ef4444" };
+      case "high":
+        return { bg: "#7c2d12", text: "#f97316", border: "#f97316" };
+      case "medium":
+        return { bg: "#78350f", text: "#fbbf24", border: "#fbbf24" };
+      case "low":
+        return { bg: "#064e3b", text: "#22c55e", border: "#22c55e" };
+      default:
+        return { bg: "#1e293b", text: "#8a96b8", border: "#334155" };
     }
   };
 
-  const getSeverityBadge = (severity: string) => {
-    const colors: Record<string, string> = {
-      critical: 'severity-critical',
-      high: 'severity-high',
-      medium: 'severity-medium',
-      low: 'severity-low',
-    };
-    return colors[severity] || '';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "open":
+        return "#ef4444";
+      case "investigating":
+        return "#fbbf24";
+      case "resolved":
+        return "#22c55e";
+      case "false_positive":
+        return "#8a96b8";
+      default:
+        return "#8a96b8";
+    }
   };
 
-  const getStatusBadge = (status: string) => {
-    const colors: Record<string, { bg: string; text: string }> = {
-      open: { bg: 'rgba(239, 68, 68, 0.2)', text: '#ef4444' },
-      investigating: { bg: 'rgba(249, 115, 22, 0.2)', text: '#f97316' },
-      resolved: { bg: 'rgba(34, 197, 94, 0.2)', text: '#22c55e' },
-      false_positive: { bg: 'rgba(107, 114, 128, 0.2)', text: '#6b7280' },
-    };
-    return colors[status] || colors.open;
+  const formatTime = (ts?: string) => {
+    if (!ts) return "N/A";
+    try {
+      return new Date(ts).toLocaleString();
+    } catch {
+      return ts;
+    }
   };
-
-  const filteredIncidents = filter === 'all'
-    ? incidents
-    : incidents.filter(i => i.status === filter);
-
-  if (loading) {
-    return <div className="loading">Loading incidents...</div>;
-  }
 
   return (
-    <div style={{ padding: '24px' }}>
-      <div className="page-header">
+    <div style={{ padding: "24px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+        }}
+      >
         <div>
-          <h1 className="page-title">🚨 Incidents</h1>
-          <p className="page-subtitle">Security incidents from correlation engine</p>
+          <h1 style={{ color: "#fff", fontSize: "28px", margin: 0 }}>
+            🔺 Incidents
+          </h1>
+          <p style={{ color: "#8a96b8", margin: "4px 0 0 0", fontSize: "14px" }}>
+            Security incidents from correlation engine
+          </p>
         </div>
         <button
           onClick={runCorrelation}
           disabled={correlating}
           style={{
-            backgroundColor: correlating ? '#64748b' : '#2563eb',
-            color: 'white',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            border: 'none',
-            cursor: correlating ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
+            background: correlating ? "#475569" : "#00bfff",
+            color: "#000",
+            border: "none",
+            padding: "10px 20px",
+            borderRadius: "6px",
+            cursor: correlating ? "wait" : "pointer",
+            fontWeight: 600,
+            fontSize: "14px",
           }}
         >
-          {correlating ? '⏳ Running...' : '🔄 Run Correlation'}
+          {correlating ? "⏳ Running..." : "⚡ Run Correlation"}
         </button>
       </div>
 
-      {message && (
-        <div style={{
-          padding: '12px',
-          borderRadius: '8px',
-          background: message.includes('✅') ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid ' + (message.includes('✅') ? '#22c55e' : '#ef4444'),
-          color: message.includes('✅') ? '#22c55e' : '#ef4444',
-          marginBottom: '16px'
-        }}>
-          {message}
+      {error && (
+        <div
+          style={{
+            background: "#7f1d1d",
+            color: "#fecaca",
+            padding: "12px 16px",
+            borderRadius: "6px",
+            marginBottom: "16px",
+          }}
+        >
+          ⚠️ {error}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        {['all', 'open', 'investigating', 'resolved', 'false_positive'].map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            style={{
-              padding: '6px 16px',
-              borderRadius: '20px',
-              border: filter === s ? '2px solid #3b82f6' : '1px solid #1e2a45',
-              background: filter === s ? '#1e293b' : 'transparent',
-              color: filter === s ? 'white' : '#8a96b8',
-              cursor: 'pointer',
-              textTransform: 'capitalize'
-            }}
-          >
-            {s.replace('_', ' ')}
-          </button>
-        ))}
-        <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: '14px' }}>
-          {filteredIncidents.length} incidents
-        </span>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+        {["all", "open", "investigating", "resolved", "false_positive"].map(
+          (status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              style={{
+                background:
+                  statusFilter === status ? "#00bfff20" : "transparent",
+                color: statusFilter === status ? "#00bfff" : "#8a96b8",
+                border: `1px solid ${
+                  statusFilter === status ? "#00bfff" : "#1e293b"
+                }`,
+                padding: "6px 14px",
+                borderRadius: "20px",
+                cursor: "pointer",
+                fontSize: "13px",
+                fontWeight: 600,
+                textTransform: "capitalize",
+              }}
+            >
+              {status.replace("_", " ")}
+            </button>
+          )
+        )}
+        <div
+          style={{
+            marginLeft: "auto",
+            color: "#8a96b8",
+            fontSize: "13px",
+            alignSelf: "center",
+          }}
+        >
+          {filtered.length} incident{filtered.length !== 1 ? "s" : ""}
+        </div>
       </div>
 
-      {filteredIncidents.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
-          <p style={{ color: '#8a96b8', fontSize: '18px', margin: 0 }}>No incidents found</p>
-          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '8px' }}>
+      {loading ? (
+        <div style={{ padding: "40px", textAlign: "center", color: "#8a96b8" }}>
+          Loading incidents...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div
+          style={{
+            background: "#0f1621",
+            border: "1px solid #1e293b",
+            borderRadius: "8px",
+            padding: "60px",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔍</div>
+          <h3 style={{ color: "#fff", margin: "0 0 8px 0" }}>
+            No incidents found
+          </h3>
+          <p style={{ color: "#8a96b8", fontSize: "14px" }}>
             Click "Run Correlation" to analyze alerts
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: '12px' }}>
-          {filteredIncidents.map((incident) => {
-            const statusBadge = getStatusBadge(incident.status);
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {filtered.map((inc) => {
+            const sevColor = getSeverityColor(inc.severity);
             return (
               <div
-                key={incident.id}
-                className="card"
+                key={inc.id}
+                onClick={() => navigate(`/incidents/${inc.id}`)}
                 style={{
-                  transition: 'all 0.2s',
-                  borderLeft: '4px solid ' + statusBadge.text
+                  background: "#0f1621",
+                  border: "1px solid #1e293b",
+                  borderLeft: `4px solid ${sevColor.border}`,
+                  borderRadius: "8px",
+                  padding: "16px",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#141b28";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#0f1621";
+                  e.currentTarget.style.transform = "translateY(0)";
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: "8px",
+                  }}
+                >
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                      <h3 style={{ color: 'white', margin: 0, fontSize: '16px' }}>{incident.title}</h3>
-                      <span className={'severity-badge ' + getSeverityBadge(incident.severity)}>
-                        {incident.severity}
-                      </span>
-                      <span style={{
-                        padding: '2px 10px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        background: statusBadge.bg,
-                        color: statusBadge.text,
-                        textTransform: 'capitalize'
-                      }}>
-                        {incident.status}
-                      </span>
+                    <div
+                      style={{
+                        color: "#fff",
+                        fontSize: "16px",
+                        fontWeight: 600,
+                        marginBottom: "4px",
+                      }}
+                    >
+                      #{inc.id} — {inc.title}
                     </div>
-                    <p style={{ color: '#8a96b8', fontSize: '14px', margin: '4px 0' }}>
-                      {incident.description}
-                    </p>
-                    <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '13px', flexWrap: 'wrap' }}>
-                      <span style={{ color: '#64748b' }}>🎯 MITRE: <span style={{ color: '#60a5fa' }}>{incident.mitre_technique}</span></span>
-                      <span style={{ color: '#64748b' }}>📊 Risk Score: <span style={{ color: '#f59e0b' }}>{incident.risk_score}/100</span></span>
-                      <span style={{ color: '#64748b' }}>📁 Alerts: <span style={{ color: 'white' }}>{incident.alert_count}</span></span>
-                      <span style={{ color: '#64748b' }}>🌐 Source: <span style={{ color: 'white' }}>{incident.src_ip}</span></span>
+                    <div style={{ color: "#8a96b8", fontSize: "13px" }}>
+                      {inc.description}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right', color: '#64748b', fontSize: '12px', minWidth: '120px' }}>
-                    {new Date(incident.created_at).toLocaleString()}
+                  <div
+                    style={{ display: "flex", gap: "8px", alignItems: "center" }}
+                  >
+                    <span
+                      style={{
+                        background: sevColor.bg,
+                        color: sevColor.text,
+                        border: `1px solid ${sevColor.border}`,
+                        padding: "4px 10px",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {inc.severity}
+                    </span>
+                    <span
+                      style={{
+                        color: getStatusColor(inc.status),
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      ● {inc.status.replace("_", " ")}
+                    </span>
                   </div>
                 </div>
-                
-                {/* Action Buttons */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #1e2a45' }}>
-                  <button
-                    onClick={() => updateIncidentStatus(incident.id, 'investigating')}
-                    style={{
-                      background: 'rgba(249, 115, 22, 0.1)',
-                      color: '#f97316',
-                      padding: '6px 16px',
-                      borderRadius: '6px',
-                      border: '1px solid #f97316',
-                      cursor: 'pointer',
-                      fontSize: '13px'
-                    }}
-                  >
-                    🔍 Investigating
-                  </button>
-                  <button
-                    onClick={() => updateIncidentStatus(incident.id, 'resolved')}
-                    style={{
-                      background: 'rgba(34, 197, 94, 0.1)',
-                      color: '#22c55e',
-                      padding: '6px 16px',
-                      borderRadius: '6px',
-                      border: '1px solid #22c55e',
-                      cursor: 'pointer',
-                      fontSize: '13px'
-                    }}
-                  >
-                    ✅ Resolved
-                  </button>
-                  <button
-                    onClick={() => updateIncidentStatus(incident.id, 'false_positive')}
-                    style={{
-                      background: 'rgba(107, 114, 128, 0.1)',
-                      color: '#6b7280',
-                      padding: '6px 16px',
-                      borderRadius: '6px',
-                      border: '1px solid #6b7280',
-                      cursor: 'pointer',
-                      fontSize: '13px'
-                    }}
-                  >
-                    ⚠️ False Positive
-                  </button>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                    fontSize: "12px",
+                    color: "#8a96b8",
+                    marginTop: "12px",
+                    paddingTop: "12px",
+                    borderTop: "1px solid #1e293b",
+                  }}
+                >
+                  {inc.rule_id && (
+                    <span>
+                      🔧 Rule:{" "}
+                      <strong style={{ color: "#00bfff" }}>{inc.rule_id}</strong>
+                    </span>
+                  )}
+                  {inc.alert_count !== undefined && (
+                    <span>
+                      🚨 Alerts:{" "}
+                      <strong style={{ color: "#fff" }}>
+                        {inc.alert_count}
+                      </strong>
+                    </span>
+                  )}
+                  {inc.mitre_techniques && inc.mitre_techniques.length > 0 && (
+                    <span>
+                      🎯 MITRE:{" "}
+                      <strong style={{ color: "#fbbf24" }}>
+                        {inc.mitre_techniques.join(", ")}
+                      </strong>
+                    </span>
+                  )}
+                  {inc.detected_at && (
+                    <span>⏰ {formatTime(inc.detected_at)}</span>
+                  )}
+                  <span style={{ marginLeft: "auto", color: "#00bfff", fontWeight: 600 }}>
+                    View Details →
+                  </span>
                 </div>
               </div>
             );

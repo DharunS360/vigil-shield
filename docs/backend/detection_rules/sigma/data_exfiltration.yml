@@ -1,0 +1,23 @@
+id: VS-005
+title: Data Exfiltration Attempt
+description: Detects large data transfers to external destinations
+status: stable
+level: critical
+author: Vigil Shield
+date: 2026-10-11
+
+logsource:
+  category: network_connection
+  product: windows
+
+detection:
+  selection:
+    signature: "*exfil*"
+  condition: selection
+
+tags:
+  - attack.exfiltration
+  - attack.t1041
+
+references:
+  - https://attack.mitre.org/techniques/T1041/

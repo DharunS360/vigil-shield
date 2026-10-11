@@ -1,29 +1,13 @@
-/**
- * Report Button — Generate + auto-download PDF report.
- * MUI v9 compatible.
- */
 import { useState } from "react";
-import {
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Typography,
-  CircularProgress,
-  Checkbox,
-  FormControlLabel,
-  Box,
-} from "@mui/material";
-import { Description as DescriptionIcon } from "@mui/icons-material";
 import { generateReport, getDownloadUrl } from "../api/reports";
+import { useTheme } from "../App";
 
 interface ReportButtonProps {
   alertData: Record<string, any>;
 }
 
 export default function ReportButton({ alertData }: ReportButtonProps) {
+  const { colors } = useTheme();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sendEmail, setSendEmail] = useState(false);
@@ -45,7 +29,6 @@ export default function ReportButton({ alertData }: ReportButtonProps) {
       setResult(res);
       setStatus("✓ Report generated successfully");
 
-      // FORCE PDF DOWNLOAD
       const downloadUrl = getDownloadUrl(res.filename);
       setTimeout(() => {
         const link = document.createElement("a");
@@ -73,157 +56,206 @@ export default function ReportButton({ alertData }: ReportButtonProps) {
     setSendEmail(false);
   };
 
+  const dialogStyle: React.CSSProperties = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: open ? "flex" : "none",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+  };
+
+  const dialogContentStyle: React.CSSProperties = {
+    background: colors.bgCard,
+    border: `1px solid ${colors.border}`,
+    borderRadius: "8px",
+    padding: "24px",
+    maxWidth: "500px",
+    width: "90%",
+    color: colors.text,
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    background: colors.bgInput,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
+    padding: "10px 12px",
+    borderRadius: "6px",
+    fontSize: "13px",
+    marginTop: "8px",
+  };
+
   return (
     <>
-      <Button
-        variant="contained"
-        startIcon={<DescriptionIcon />}
+      <button
         onClick={() => setOpen(true)}
-        sx={{
-          bgcolor: "#00bfff",
+        style={{
+          background: colors.accent,
           color: "#000",
           fontWeight: 600,
-          "&:hover": { bgcolor: "#00d4ff" },
+          border: "none",
+          padding: "10px 20px",
+          borderRadius: "6px",
+          cursor: "pointer",
+          fontSize: "14px",
         }}
       >
-        Generate Report
-      </Button>
+        📄 Generate Report
+      </button>
 
-      <Dialog
-        open={open}
-        onClose={handleClose}
-        maxWidth="sm"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: { bgcolor: "#0f1621", border: "1px solid #00bfff40" },
-          },
-        }}
-      >
-        <DialogTitle sx={{ color: "#fff" }}>
-          Generate Incident Report
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ color: "#999", mb: 3 }}>
-            Create a professional PDF report for alert{" "}
-            <strong style={{ color: "#00bfff" }}>
-              {alertData.id || "N/A"}
-            </strong>
-          </Typography>
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={sendEmail}
-                onChange={(e) => setSendEmail(e.target.checked)}
-                sx={{ color: "#00bfff", "&.Mui-checked": { color: "#00bfff" } }}
-              />
-            }
-            label={
-              <Typography sx={{ color: "#ccc", fontSize: 14 }}>
-                Send via email
-              </Typography>
-            }
-          />
-
-          {sendEmail && (
-            <TextField
-              fullWidth
-              type="email"
-              placeholder="recipient@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              sx={{
-                mt: 2,
-                "& .MuiOutlinedInput-root": {
-                  color: "#fff",
-                  "& fieldset": { borderColor: "#00bfff30" },
-                  "&:hover fieldset": { borderColor: "#00bfff" },
-                  "&.Mui-focused fieldset": { borderColor: "#00bfff" },
-                },
-              }}
-            />
-          )}
-
-          {status && (
-            <Box
-              sx={{
-                mt: 2,
-                p: 1.5,
-                borderRadius: 1,
-                bgcolor: status.startsWith("✓")
-                  ? "rgba(0,168,84,0.1)"
-                  : "rgba(255,59,59,0.1)",
-                border: `1px solid ${
-                  status.startsWith("✓") ? "#00a854" : "#ff3b3b"
-                }40`,
+      {open && (
+        <div style={dialogStyle} onClick={handleClose}>
+          <div style={dialogContentStyle} onClick={(e) => e.stopPropagation()}>
+            <h3
+              style={{
+                color: colors.textHeading,
+                margin: "0 0 8px 0",
+                fontSize: "18px",
               }}
             >
-              <Typography
-                variant="body2"
-                sx={{
-                  color: status.startsWith("✓") ? "#00a854" : "#ff3b3b",
+              Generate Incident Report
+            </h3>
+            <p
+              style={{
+                color: colors.textMuted,
+                fontSize: "13px",
+                marginBottom: "16px",
+              }}
+            >
+              Create a professional PDF report for alert{" "}
+              <strong style={{ color: colors.accent }}>
+                {alertData.id || "N/A"}
+              </strong>
+            </p>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                color: colors.text,
+                fontSize: "14px",
+                marginBottom: "12px",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.target.checked)}
+              />
+              Send via email
+            </label>
+
+            {sendEmail && (
+              <input
+                type="email"
+                placeholder="recipient@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={inputStyle}
+              />
+            )}
+
+            {status && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "10px",
+                  borderRadius: "6px",
+                  background: status.startsWith("✓")
+                    ? "rgba(0,168,84,0.1)"
+                    : "rgba(255,59,59,0.1)",
+                  color: status.startsWith("✓") ? "#22c55e" : "#ef4444",
+                  border: `1px solid ${
+                    status.startsWith("✓") ? "#22c55e" : "#ef4444"
+                  }40`,
+                  fontSize: "13px",
                   fontFamily: "monospace",
-                  fontSize: 12,
                 }}
               >
                 {status}
-              </Typography>
-            </Box>
-          )}
+              </div>
+            )}
 
-          {result && (
-            <Button
-              variant="outlined"
-              onClick={() => {
-                const link = document.createElement("a");
-                link.href = getDownloadUrl(result.filename);
-                link.download = result.filename;
-                link.style.display = "none";
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}
-              sx={{
-                mt: 2,
-                color: "#00bfff",
-                borderColor: "#00bfff",
-                "&:hover": {
-                  borderColor: "#00d4ff",
-                  bgcolor: "rgba(0,191,255,0.1)",
-                },
+            {result && (
+              <button
+                onClick={() => {
+                  const link = document.createElement("a");
+                  link.href = getDownloadUrl(result.filename);
+                  link.download = result.filename;
+                  link.style.display = "none";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                style={{
+                  marginTop: "12px",
+                  background: "transparent",
+                  color: colors.accent,
+                  border: `1px solid ${colors.accent}`,
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                }}
+              >
+                📄 Download PDF Again
+              </button>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                justifyContent: "flex-end",
+                marginTop: "20px",
               }}
             >
-              📄 Download PDF Again
-            </Button>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} sx={{ color: "#999" }}>
-            Close
-          </Button>
-          <Button
-            onClick={handleGenerate}
-            disabled={loading || !!result}
-            variant="contained"
-            sx={{
-              bgcolor: "#00bfff",
-              color: "#000",
-              fontWeight: 600,
-              "&:hover": { bgcolor: "#00d4ff" },
-            }}
-          >
-            {loading ? (
-              <>
-                <CircularProgress size={18} sx={{ mr: 1, color: "#000" }} />
-                Generating...
-              </>
-            ) : (
-              "Generate Report"
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <button
+                onClick={handleClose}
+                style={{
+                  background: "transparent",
+                  color: colors.textMuted,
+                  border: `1px solid ${colors.border}`,
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={handleGenerate}
+                disabled={loading || !!result}
+                style={{
+                  background: loading || result ? "#475569" : colors.accent,
+                  color: "#000",
+                  border: "none",
+                  padding: "8px 20px",
+                  borderRadius: "6px",
+                  cursor: loading || result ? "wait" : "pointer",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                }}
+              >
+                {loading
+                  ? "⏳ Generating..."
+                  : result
+                  ? "✓ Generated"
+                  : "Generate Report"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

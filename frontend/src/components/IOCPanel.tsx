@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { enrichIP, EnrichmentResult } from "../api/enrichment";
+import { useTheme } from "../App";
 
 interface IOCPanelProps {
   ip: string;
@@ -16,6 +17,7 @@ const riskColors: Record<
 };
 
 const IOCPanel: React.FC<IOCPanelProps> = ({ ip }) => {
+  const { colors } = useTheme();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<EnrichmentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ const IOCPanel: React.FC<IOCPanelProps> = ({ ip }) => {
         onClick={handleEnrich}
         disabled={loading}
         style={{
-          background: loading ? "#475569" : "#00bfff",
+          background: loading ? "#475569" : colors.accent,
           color: "#000",
           border: "none",
           padding: "10px 20px",
@@ -77,11 +79,12 @@ const IOCPanel: React.FC<IOCPanelProps> = ({ ip }) => {
         <div
           style={{
             marginTop: "16px",
-            background: "#0f1621",
+            background: colors.bgCard,
             border: `1px solid ${riskStyle.border}40`,
             borderLeft: `4px solid ${riskStyle.border}`,
             borderRadius: "8px",
             padding: "16px",
+            transition: "all 0.3s ease",
           }}
         >
           <div
@@ -90,9 +93,17 @@ const IOCPanel: React.FC<IOCPanelProps> = ({ ip }) => {
               justifyContent: "space-between",
               alignItems: "center",
               marginBottom: "16px",
+              flexWrap: "wrap",
+              gap: "8px",
             }}
           >
-            <div style={{ color: "#fff", fontSize: "16px", fontWeight: 600 }}>
+            <div
+              style={{
+                color: colors.text,
+                fontSize: "16px",
+                fontWeight: 600,
+              }}
+            >
               🌐 IOC Enrichment
             </div>
             <div
@@ -112,23 +123,24 @@ const IOCPanel: React.FC<IOCPanelProps> = ({ ip }) => {
 
           <div
             style={{
-              color: "#8a96b8",
+              color: colors.textMuted,
               fontSize: "13px",
               marginBottom: "16px",
               padding: "8px",
-              background: "#1e293b",
+              background: colors.bgInput,
               borderRadius: "4px",
               fontFamily: "monospace",
             }}
           >
-            <strong style={{ color: "#00bfff" }}>IP:</strong> {result.value}
+            <strong style={{ color: colors.accent }}>IP:</strong>{" "}
+            {result.value}
           </div>
 
           {result.virustotal && (
             <div style={{ marginBottom: "12px" }}>
               <div
                 style={{
-                  color: "#00bfff",
+                  color: colors.accent,
                   fontSize: "13px",
                   fontWeight: 600,
                   marginBottom: "8px",
@@ -147,28 +159,32 @@ const IOCPanel: React.FC<IOCPanelProps> = ({ ip }) => {
                   label="Malicious"
                   value={result.virustotal.malicious ?? 0}
                   color="#ef4444"
+                  colors={colors}
                 />
                 <StatBox
                   label="Suspicious"
                   value={result.virustotal.suspicious ?? 0}
                   color="#f59e0b"
+                  colors={colors}
                 />
                 <StatBox
                   label="Harmless"
                   value={result.virustotal.harmless ?? 0}
                   color="#22c55e"
+                  colors={colors}
                 />
                 <StatBox
                   label="Total Engines"
                   value={result.virustotal.total_engines ?? 0}
-                  color="#8a96b8"
+                  color={colors.textMuted}
+                  colors={colors}
                 />
               </div>
               <div
                 style={{
                   marginTop: "8px",
                   fontSize: "12px",
-                  color: "#8a96b8",
+                  color: colors.textMuted,
                 }}
               >
                 <strong>Country:</strong> {result.virustotal.country || "N/A"}{" "}
@@ -184,7 +200,7 @@ const IOCPanel: React.FC<IOCPanelProps> = ({ ip }) => {
             <div>
               <div
                 style={{
-                  color: "#00bfff",
+                  color: colors.accent,
                   fontSize: "13px",
                   fontWeight: 600,
                   marginBottom: "8px",
@@ -207,11 +223,13 @@ const IOCPanel: React.FC<IOCPanelProps> = ({ ip }) => {
                       ? "#ef4444"
                       : "#22c55e"
                   }
+                  colors={colors}
                 />
                 <StatBox
                   label="Reports"
                   value={result.abuseipdb.total_reports ?? 0}
                   color="#f59e0b"
+                  colors={colors}
                 />
                 <StatBox
                   label="Whitelisted"
@@ -219,13 +237,14 @@ const IOCPanel: React.FC<IOCPanelProps> = ({ ip }) => {
                   color={
                     result.abuseipdb.is_whitelisted ? "#22c55e" : "#ef4444"
                   }
+                  colors={colors}
                 />
               </div>
               <div
                 style={{
                   marginTop: "8px",
                   fontSize: "12px",
-                  color: "#8a96b8",
+                  color: colors.textMuted,
                 }}
               >
                 <strong>ISP:</strong> {result.abuseipdb.isp || "N/A"} •{" "}
@@ -246,20 +265,28 @@ const StatBox = ({
   label,
   value,
   color,
+  colors,
 }: {
   label: string;
   value: number | string;
   color: string;
+  colors: any;
 }) => (
   <div
     style={{
-      background: "#1e293b",
+      background: colors.bgInput,
       padding: "8px",
       borderRadius: "4px",
       textAlign: "center",
     }}
   >
-    <div style={{ color: "#8a96b8", fontSize: "10px", marginBottom: "4px" }}>
+    <div
+      style={{
+        color: colors.textMuted,
+        fontSize: "10px",
+        marginBottom: "4px",
+      }}
+    >
       {label}
     </div>
     <div style={{ color, fontSize: "18px", fontWeight: "bold" }}>{value}</div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../api/client";
+import { useTheme } from "../App";
 
 interface Incident {
   id: number;
@@ -22,6 +23,7 @@ interface Incident {
 
 const Incidents = () => {
   const navigate = useNavigate();
+  const { colors } = useTheme();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [correlating, setCorrelating] = useState(false);
@@ -37,7 +39,6 @@ const Incidents = () => {
       setIncidents(list);
       setError(null);
     } catch (err: any) {
-      console.error("Failed to fetch incidents:", err);
       setError(err?.message || "Failed to load incidents");
     } finally {
       setLoading(false);
@@ -120,13 +121,23 @@ const Incidents = () => {
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: "20px",
+          flexWrap: "wrap",
+          gap: "12px",
         }}
       >
         <div>
-          <h1 style={{ color: "#fff", fontSize: "28px", margin: 0 }}>
+          <h1
+            style={{ color: colors.textHeading, fontSize: "28px", margin: 0 }}
+          >
             🔺 Incidents
           </h1>
-          <p style={{ color: "#8a96b8", margin: "4px 0 0 0", fontSize: "14px" }}>
+          <p
+            style={{
+              color: colors.textMuted,
+              margin: "4px 0 0 0",
+              fontSize: "14px",
+            }}
+          >
             Security incidents from correlation engine
           </p>
         </div>
@@ -134,7 +145,7 @@ const Incidents = () => {
           onClick={runCorrelation}
           disabled={correlating}
           style={{
-            background: correlating ? "#475569" : "#00bfff",
+            background: correlating ? "#475569" : colors.accent,
             color: "#000",
             border: "none",
             padding: "10px 20px",
@@ -162,7 +173,7 @@ const Incidents = () => {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
         {["all", "open", "investigating", "resolved", "false_positive"].map(
           (status) => (
             <button
@@ -170,10 +181,11 @@ const Incidents = () => {
               onClick={() => setStatusFilter(status)}
               style={{
                 background:
-                  statusFilter === status ? "#00bfff20" : "transparent",
-                color: statusFilter === status ? "#00bfff" : "#8a96b8",
+                  statusFilter === status ? colors.navActiveBg : "transparent",
+                color:
+                  statusFilter === status ? colors.accent : colors.textMuted,
                 border: `1px solid ${
-                  statusFilter === status ? "#00bfff" : "#1e293b"
+                  statusFilter === status ? colors.accent : colors.border
                 }`,
                 padding: "6px 14px",
                 borderRadius: "20px",
@@ -190,7 +202,7 @@ const Incidents = () => {
         <div
           style={{
             marginLeft: "auto",
-            color: "#8a96b8",
+            color: colors.textMuted,
             fontSize: "13px",
             alignSelf: "center",
           }}
@@ -200,24 +212,32 @@ const Incidents = () => {
       </div>
 
       {loading ? (
-        <div style={{ padding: "40px", textAlign: "center", color: "#8a96b8" }}>
+        <div
+          style={{
+            padding: "40px",
+            textAlign: "center",
+            color: colors.textMuted,
+          }}
+        >
           Loading incidents...
         </div>
       ) : filtered.length === 0 ? (
         <div
           style={{
-            background: "#0f1621",
-            border: "1px solid #1e293b",
+            background: colors.bgCard,
+            border: `1px solid ${colors.border}`,
             borderRadius: "8px",
             padding: "60px",
             textAlign: "center",
           }}
         >
           <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔍</div>
-          <h3 style={{ color: "#fff", margin: "0 0 8px 0" }}>
+          <h3
+            style={{ color: colors.text, margin: "0 0 8px 0" }}
+          >
             No incidents found
           </h3>
-          <p style={{ color: "#8a96b8", fontSize: "14px" }}>
+          <p style={{ color: colors.textMuted, fontSize: "14px" }}>
             Click "Run Correlation" to analyze alerts
           </p>
         </div>
@@ -230,8 +250,8 @@ const Incidents = () => {
                 key={inc.id}
                 onClick={() => navigate(`/incidents/${inc.id}`)}
                 style={{
-                  background: "#0f1621",
-                  border: "1px solid #1e293b",
+                  background: colors.bgCard,
+                  border: `1px solid ${colors.border}`,
                   borderLeft: `4px solid ${sevColor.border}`,
                   borderRadius: "8px",
                   padding: "16px",
@@ -239,11 +259,11 @@ const Incidents = () => {
                   transition: "all 0.2s",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#141b28";
+                  e.currentTarget.style.background = colors.bgHover;
                   e.currentTarget.style.transform = "translateY(-2px)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#0f1621";
+                  e.currentTarget.style.background = colors.bgCard;
                   e.currentTarget.style.transform = "translateY(0)";
                 }}
               >
@@ -258,7 +278,7 @@ const Incidents = () => {
                   <div style={{ flex: 1 }}>
                     <div
                       style={{
-                        color: "#fff",
+                        color: colors.text,
                         fontSize: "16px",
                         fontWeight: 600,
                         marginBottom: "4px",
@@ -266,7 +286,12 @@ const Incidents = () => {
                     >
                       #{inc.id} — {inc.title}
                     </div>
-                    <div style={{ color: "#8a96b8", fontSize: "13px" }}>
+                    <div
+                      style={{
+                        color: colors.textMuted,
+                        fontSize: "13px",
+                      }}
+                    >
                       {inc.description}
                     </div>
                   </div>
@@ -306,22 +331,24 @@ const Incidents = () => {
                     gap: "16px",
                     flexWrap: "wrap",
                     fontSize: "12px",
-                    color: "#8a96b8",
+                    color: colors.textMuted,
                     marginTop: "12px",
                     paddingTop: "12px",
-                    borderTop: "1px solid #1e293b",
+                    borderTop: `1px solid ${colors.border}`,
                   }}
                 >
                   {inc.rule_id && (
                     <span>
                       🔧 Rule:{" "}
-                      <strong style={{ color: "#00bfff" }}>{inc.rule_id}</strong>
+                      <strong style={{ color: colors.accent }}>
+                        {inc.rule_id}
+                      </strong>
                     </span>
                   )}
                   {inc.alert_count !== undefined && (
                     <span>
                       🚨 Alerts:{" "}
-                      <strong style={{ color: "#fff" }}>
+                      <strong style={{ color: colors.text }}>
                         {inc.alert_count}
                       </strong>
                     </span>
@@ -337,9 +364,6 @@ const Incidents = () => {
                   {inc.detected_at && (
                     <span>⏰ {formatTime(inc.detected_at)}</span>
                   )}
-                  <span style={{ marginLeft: "auto", color: "#00bfff", fontWeight: 600 }}>
-                    View Details →
-                  </span>
                 </div>
               </div>
             );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../api/client";
+import { useTheme } from "../App";
 
 interface Alert {
   id: string | number;
@@ -12,15 +13,14 @@ interface Alert {
   signature?: string;
   severity?: string;
   category?: string;
-  source_type?: string;
   mitre_technique?: string;
-  status?: string;
   risk_score?: number;
   risk_level?: string;
   enriched_at?: string;
 }
 
 const Alerts = () => {
+  const { colors } = useTheme();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [filtered, setFiltered] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +48,6 @@ const Alerts = () => {
 
   useEffect(() => {
     let result = alerts;
-
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -59,17 +58,14 @@ const Alerts = () => {
           a.category?.toLowerCase().includes(q)
       );
     }
-
     if (severityFilter !== "all") {
       result = result.filter(
         (a) => a.severity?.toLowerCase() === severityFilter
       );
     }
-
     if (riskFilter !== "all") {
       result = result.filter((a) => a.risk_level === riskFilter);
     }
-
     setFiltered(result);
   }, [search, severityFilter, riskFilter, alerts]);
 
@@ -99,7 +95,7 @@ const Alerts = () => {
       case "low":
         return "#22c55e";
       default:
-        return "#8a96b8";
+        return colors.textMuted;
     }
   };
 
@@ -112,27 +108,32 @@ const Alerts = () => {
     }
   };
 
+  const inputStyle: React.CSSProperties = {
+    background: colors.bgInput,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
+    padding: "10px 16px",
+    borderRadius: "6px",
+    fontSize: "14px",
+  };
+
   return (
     <div style={{ padding: "24px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-        }}
-      >
-        <div>
-          <h1 style={{ color: "#fff", fontSize: "28px", margin: 0 }}>
-            🚨 Alerts
-          </h1>
-          <p style={{ color: "#8a96b8", margin: "4px 0 0 0", fontSize: "14px" }}>
-            All security alerts with detailed information
-          </p>
-        </div>
+      <div style={{ marginBottom: "20px" }}>
+        <h1 style={{ color: colors.textHeading, fontSize: "28px", margin: 0 }}>
+          🚨 Alerts
+        </h1>
+        <p
+          style={{
+            color: colors.textMuted,
+            margin: "4px 0 0 0",
+            fontSize: "14px",
+          }}
+        >
+          All security alerts with detailed information
+        </p>
       </div>
 
-      {/* Filters */}
       <div
         style={{
           display: "flex",
@@ -146,28 +147,12 @@ const Alerts = () => {
           placeholder="🔍 Search alerts..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{
-            background: "#0f1621",
-            color: "#fff",
-            border: "1px solid #1e293b",
-            padding: "10px 16px",
-            borderRadius: "6px",
-            fontSize: "14px",
-            minWidth: "300px",
-            flex: 1,
-          }}
+          style={{ ...inputStyle, minWidth: "300px", flex: 1 }}
         />
         <select
           value={severityFilter}
           onChange={(e) => setSeverityFilter(e.target.value)}
-          style={{
-            background: "#0f1621",
-            color: "#fff",
-            border: "1px solid #1e293b",
-            padding: "10px 16px",
-            borderRadius: "6px",
-            fontSize: "14px",
-          }}
+          style={inputStyle}
         >
           <option value="all">All Severities</option>
           <option value="critical">Critical</option>
@@ -178,14 +163,7 @@ const Alerts = () => {
         <select
           value={riskFilter}
           onChange={(e) => setRiskFilter(e.target.value)}
-          style={{
-            background: "#0f1621",
-            color: "#fff",
-            border: "1px solid #1e293b",
-            padding: "10px 16px",
-            borderRadius: "6px",
-            fontSize: "14px",
-          }}
+          style={inputStyle}
         >
           <option value="all">All Risk Levels</option>
           <option value="critical">Critical Risk</option>
@@ -195,39 +173,62 @@ const Alerts = () => {
         </select>
       </div>
 
-      {/* Count */}
-      <div style={{ color: "#8a96b8", fontSize: "13px", marginBottom: "16px" }}>
+      <div
+        style={{
+          color: colors.textMuted,
+          fontSize: "13px",
+          marginBottom: "16px",
+        }}
+      >
         Showing {filtered.length} of {alerts.length} alerts
       </div>
 
-      {/* Table */}
       <div
         style={{
-          background: "#0f1621",
-          border: "1px solid #1e293b",
+          background: colors.bgCard,
+          border: `1px solid ${colors.border}`,
           borderRadius: "8px",
           overflow: "hidden",
+          transition: "all 0.3s ease",
         }}
       >
         {loading ? (
-          <div style={{ padding: "40px", textAlign: "center", color: "#8a96b8" }}>
+          <div
+            style={{
+              padding: "40px",
+              textAlign: "center",
+              color: colors.textMuted,
+            }}
+          >
             Loading alerts...
           </div>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: "40px", textAlign: "center", color: "#8a96b8" }}>
+          <div
+            style={{
+              padding: "40px",
+              textAlign: "center",
+              color: colors.textMuted,
+            }}
+          >
             No alerts found
           </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "#1e293b" }}>
-                <th style={thStyle}>Time</th>
-                <th style={thStyle}>Source</th>
-                <th style={thStyle}>Destination</th>
-                <th style={thStyle}>Signature</th>
-                <th style={thStyle}>Severity</th>
-                <th style={thStyle}>Risk</th>
-                <th style={thStyle}>Details</th>
+              <tr style={{ background: colors.bgInput }}>
+                <th style={{ ...thStyle, color: colors.textMuted }}>Time</th>
+                <th style={{ ...thStyle, color: colors.textMuted }}>Source</th>
+                <th style={{ ...thStyle, color: colors.textMuted }}>
+                  Destination
+                </th>
+                <th style={{ ...thStyle, color: colors.textMuted }}>
+                  Signature
+                </th>
+                <th style={{ ...thStyle, color: colors.textMuted }}>
+                  Severity
+                </th>
+                <th style={{ ...thStyle, color: colors.textMuted }}>Risk</th>
+                <th style={{ ...thStyle, color: colors.textMuted }}>Details</th>
               </tr>
             </thead>
             <tbody>
@@ -237,38 +238,46 @@ const Alerts = () => {
                   <tr
                     key={alert.id}
                     style={{
-                      borderTop: "1px solid #1e293b",
+                      borderTop: `1px solid ${colors.border}`,
                       transition: "background 0.2s",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "#141b28";
+                      e.currentTarget.style.background = colors.bgHover;
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = "transparent";
                     }}
                   >
-                    <td style={tdStyle}>{formatTime(alert.timestamp)}</td>
-                    <td style={tdStyle}>
-                      <div style={{ fontFamily: "monospace", color: "#fff" }}>
+                    <td style={{ ...tdStyle, color: colors.text }}>
+                      {formatTime(alert.timestamp)}
+                    </td>
+                    <td style={{ ...tdStyle, color: colors.text }}>
+                      <div style={{ fontFamily: "monospace" }}>
                         {alert.src_ip || "N/A"}
                       </div>
-                      <div style={{ fontSize: "11px", color: "#8a96b8" }}>
+                      <div
+                        style={{ fontSize: "11px", color: colors.textMuted }}
+                      >
                         Port: {alert.src_port || "N/A"}
                       </div>
                     </td>
-                    <td style={tdStyle}>
-                      <div style={{ fontFamily: "monospace", color: "#fff" }}>
+                    <td style={{ ...tdStyle, color: colors.text }}>
+                      <div style={{ fontFamily: "monospace" }}>
                         {alert.dst_ip || "N/A"}
                       </div>
-                      <div style={{ fontSize: "11px", color: "#8a96b8" }}>
+                      <div
+                        style={{ fontSize: "11px", color: colors.textMuted }}
+                      >
                         Port: {alert.dst_port || "N/A"}
                       </div>
                     </td>
-                    <td style={tdStyle}>
-                      <div style={{ color: "#fff", fontWeight: 500 }}>
+                    <td style={{ ...tdStyle, color: colors.text }}>
+                      <div style={{ fontWeight: 500 }}>
                         {alert.signature || "Unknown"}
                       </div>
-                      <div style={{ fontSize: "11px", color: "#8a96b8" }}>
+                      <div
+                        style={{ fontSize: "11px", color: colors.textMuted }}
+                      >
                         {alert.category || "Unknown"}
                       </div>
                     </td>
@@ -300,12 +309,19 @@ const Alerts = () => {
                           >
                             {alert.risk_level?.toUpperCase() || "LOW"}
                           </div>
-                          <div style={{ fontSize: "11px", color: "#8a96b8" }}>
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: colors.textMuted,
+                            }}
+                          >
                             Score: {alert.risk_score ?? 0}
                           </div>
                         </div>
                       ) : (
-                        <span style={{ color: "#8a96b8", fontSize: "11px" }}>
+                        <span
+                          style={{ color: colors.textMuted, fontSize: "11px" }}
+                        >
                           Not enriched
                         </span>
                       )}
@@ -314,7 +330,7 @@ const Alerts = () => {
                       <Link
                         to={`/alerts/${alert.id}`}
                         style={{
-                          color: "#00bfff",
+                          color: colors.accent,
                           textDecoration: "none",
                           fontSize: "13px",
                           fontWeight: 600,
@@ -337,7 +353,6 @@ const Alerts = () => {
 const thStyle: React.CSSProperties = {
   padding: "14px 16px",
   textAlign: "left",
-  color: "#8a96b8",
   fontSize: "12px",
   fontWeight: 600,
   textTransform: "uppercase",
@@ -347,7 +362,6 @@ const thStyle: React.CSSProperties = {
 const tdStyle: React.CSSProperties = {
   padding: "14px 16px",
   fontSize: "13px",
-  color: "#fff",
   verticalAlign: "top",
 };
 

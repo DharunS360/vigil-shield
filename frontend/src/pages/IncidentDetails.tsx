@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { apiClient } from "../api/client";
+import { useTheme } from "../App";
 
 interface Alert {
   id: number;
@@ -9,13 +10,9 @@ interface Alert {
   dst_ip?: string;
   src_port?: number;
   dst_port?: number;
-  protocol?: string;
   signature?: string;
   severity?: string;
-  category?: string;
   mitre_technique?: string;
-  risk_score?: number;
-  risk_level?: string;
 }
 
 interface TimelineEntry {
@@ -43,22 +40,20 @@ interface Incident {
   priority?: string;
   assignee?: string;
   triage_decision?: string;
-  triage_notes?: string;
   rule_id?: string;
   rule_name?: string;
   mitre_tactics?: string[];
   mitre_techniques?: string[];
   timeline?: TimelineEntry[];
   evidence?: EvidenceEntry[];
-  playbook_ref?: string;
   detected_at?: string;
-  resolved_at?: string;
   alerts?: Alert[];
 }
 
 const IncidentDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { colors } = useTheme();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,11 +70,10 @@ const IncidentDetails = () => {
     try {
       setLoading(true);
       const res = await apiClient.get(`/incidents/${id}`);
-      const data = res.data;
-      setIncident(data.data || data);
+      setIncident(res.data.data || res.data);
       setError(null);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || "Failed to load");
+      setError(err?.response?.data?.detail || err?.message || "Failed");
     } finally {
       setLoading(false);
     }
@@ -137,7 +131,6 @@ const IncidentDetails = () => {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
-
       await apiClient.post(
         `/incidents/${id}/upload?description=${encodeURIComponent(
           uploadDesc || selectedFile.name
@@ -145,7 +138,6 @@ const IncidentDetails = () => {
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
-
       setSelectedFile(null);
       setUploadDesc("");
       await fetchIncident();
@@ -181,9 +173,69 @@ const IncidentDetails = () => {
     }
   };
 
+  const cardStyle: React.CSSProperties = {
+    background: colors.bgCard,
+    border: `1px solid ${colors.border}`,
+    borderRadius: "8px",
+    padding: "20px",
+    marginBottom: "16px",
+    transition: "all 0.3s ease",
+  };
+
+  const sectionHeader: React.CSSProperties = {
+    color: colors.accent,
+    fontSize: "16px",
+    fontWeight: 600,
+    marginBottom: "16px",
+    marginTop: 0,
+  };
+
+  const labelStyle: React.CSSProperties = {
+    color: colors.textMuted,
+    fontSize: "12px",
+    marginBottom: "6px",
+    display: "block",
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    background: colors.bgInput,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
+    padding: "8px 12px",
+    borderRadius: "6px",
+    fontSize: "13px",
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    background: colors.accent,
+    color: "#000",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: "13px",
+  };
+
+  const thStyle: React.CSSProperties = {
+    padding: "10px 12px",
+    textAlign: "left",
+    fontSize: "11px",
+    fontWeight: 600,
+    textTransform: "uppercase",
+  };
+
+  const tdStyle: React.CSSProperties = {
+    padding: "10px 12px",
+    fontSize: "13px",
+  };
+
   if (loading) {
     return (
-      <div style={{ padding: "40px", textAlign: "center", color: "#8a96b8" }}>
+      <div
+        style={{ padding: "40px", textAlign: "center", color: colors.textMuted }}
+      >
         Loading incident details...
       </div>
     );
@@ -198,7 +250,7 @@ const IncidentDetails = () => {
           onClick={() => navigate("/incidents")}
           style={{
             marginTop: "16px",
-            background: "#00bfff",
+            background: colors.accent,
             color: "#000",
             border: "none",
             padding: "10px 20px",
@@ -221,7 +273,7 @@ const IncidentDetails = () => {
         onClick={() => navigate("/incidents")}
         style={{
           background: "transparent",
-          color: "#00bfff",
+          color: colors.accent,
           border: "none",
           cursor: "pointer",
           fontSize: "14px",
@@ -239,13 +291,22 @@ const IncidentDetails = () => {
           alignItems: "flex-start",
           gap: "16px",
           marginBottom: "24px",
+          flexWrap: "wrap",
         }}
       >
         <div style={{ flex: 1 }}>
-          <h1 style={{ color: "#fff", fontSize: "28px", margin: 0 }}>
+          <h1
+            style={{ color: colors.textHeading, fontSize: "28px", margin: 0 }}
+          >
             🔺 Incident #{incident.id}
           </h1>
-          <p style={{ color: "#8a96b8", margin: "8px 0 0 0", fontSize: "16px" }}>
+          <p
+            style={{
+              color: colors.textMuted,
+              margin: "8px 0 0 0",
+              fontSize: "16px",
+            }}
+          >
             {incident.title}
           </p>
         </div>
@@ -270,7 +331,7 @@ const IncidentDetails = () => {
         <h3 style={sectionHeader}>
           ⚙️ Status & Triage{" "}
           {updating && (
-            <span style={{ color: "#00bfff", fontSize: "12px" }}>
+            <span style={{ color: colors.accent, fontSize: "12px" }}>
               ⏳ Saving...
             </span>
           )}
@@ -288,7 +349,7 @@ const IncidentDetails = () => {
               value={incident.status}
               onChange={(e) => updateIncident({ status: e.target.value })}
               disabled={updating}
-              style={selectStyle}
+              style={inputStyle}
             >
               <option value="open">Open</option>
               <option value="investigating">Investigating</option>
@@ -304,7 +365,7 @@ const IncidentDetails = () => {
                 updateIncident({ triage_decision: e.target.value })
               }
               disabled={updating}
-              style={selectStyle}
+              style={inputStyle}
             >
               <option value="">Not decided</option>
               <option value="TP">True Positive</option>
@@ -323,7 +384,7 @@ const IncidentDetails = () => {
                   updateIncident({ assignee: e.target.value });
                 }
               }}
-              style={selectStyle}
+              style={inputStyle}
             />
           </div>
           <div>
@@ -332,7 +393,7 @@ const IncidentDetails = () => {
               value={incident.priority || "P3"}
               onChange={(e) => updateIncident({ priority: e.target.value })}
               disabled={updating}
-              style={selectStyle}
+              style={inputStyle}
             >
               <option value="P1">P1 - Critical</option>
               <option value="P2">P2 - High</option>
@@ -353,20 +414,31 @@ const IncidentDetails = () => {
             gap: "12px",
           }}
         >
-          <InfoBox label="Rule ID" value={incident.rule_id || "N/A"} />
-          <InfoBox label="Rule Name" value={incident.rule_name || "N/A"} />
-          <InfoBox label="Detected At" value={formatTime(incident.detected_at)} />
+          <InfoBox label="Rule ID" value={incident.rule_id || "N/A"} colors={colors} />
+          <InfoBox
+            label="Rule Name"
+            value={incident.rule_name || "N/A"}
+            colors={colors}
+          />
+          <InfoBox
+            label="Detected At"
+            value={formatTime(incident.detected_at)}
+            colors={colors}
+          />
           <InfoBox
             label="MITRE Tactics"
             value={(incident.mitre_tactics || []).join(", ") || "N/A"}
+            colors={colors}
           />
           <InfoBox
             label="MITRE Techniques"
             value={(incident.mitre_techniques || []).join(", ") || "N/A"}
+            colors={colors}
           />
           <InfoBox
             label="Alert Count"
             value={String(incident.alerts?.length || 0)}
+            colors={colors}
           />
         </div>
       </div>
@@ -374,20 +446,18 @@ const IncidentDetails = () => {
       {/* Timeline */}
       <div style={cardStyle}>
         <h3 style={sectionHeader}>📅 Timeline</h3>
-        <div style={{ marginBottom: "16px" }}>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <input
-              type="text"
-              placeholder="Add timeline note..."
-              value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addTimelineEntry()}
-              style={{ ...selectStyle, flex: 1 }}
-            />
-            <button onClick={addTimelineEntry} style={buttonStyle}>
-              + Add Note
-            </button>
-          </div>
+        <div style={{ marginBottom: "16px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <input
+            type="text"
+            placeholder="Add timeline note..."
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addTimelineEntry()}
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button onClick={addTimelineEntry} style={buttonStyle}>
+            + Add Note
+          </button>
         </div>
         {incident.timeline && incident.timeline.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -398,14 +468,15 @@ const IncidentDetails = () => {
                   display: "flex",
                   gap: "12px",
                   padding: "12px",
-                  background: "#1e293b",
+                  background: colors.bgInput,
                   borderRadius: "6px",
-                  borderLeft: "3px solid #00bfff",
+                  borderLeft: `3px solid ${colors.accent}`,
+                  flexWrap: "wrap",
                 }}
               >
                 <div
                   style={{
-                    color: "#00bfff",
+                    color: colors.accent,
                     fontSize: "12px",
                     fontFamily: "monospace",
                     minWidth: "140px",
@@ -413,17 +484,19 @@ const IncidentDetails = () => {
                 >
                   {formatTime(entry.time)}
                 </div>
-                <div style={{ flex: 1, color: "#fff", fontSize: "13px" }}>
+                <div
+                  style={{ flex: 1, color: colors.text, fontSize: "13px" }}
+                >
                   {entry.event}
                 </div>
-                <div style={{ color: "#8a96b8", fontSize: "12px" }}>
+                <div style={{ color: colors.textMuted, fontSize: "12px" }}>
                   👤 {entry.analyst}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <p style={{ color: "#8a96b8", textAlign: "center" }}>
+          <p style={{ color: colors.textMuted, textAlign: "center" }}>
             No timeline entries yet
           </p>
         )}
@@ -433,18 +506,21 @@ const IncidentDetails = () => {
       <div style={cardStyle}>
         <h3 style={sectionHeader}>📎 Evidence</h3>
 
-        {/* File Upload */}
         <div
           style={{
             marginBottom: "16px",
             padding: "16px",
-            background: "#1e293b",
+            background: colors.bgInput,
             borderRadius: "8px",
-            border: "1px dashed #334155",
+            border: `1px dashed ${colors.border}`,
           }}
         >
           <h4
-            style={{ color: "#00bfff", margin: "0 0 12px 0", fontSize: "14px" }}
+            style={{
+              color: colors.accent,
+              margin: "0 0 12px 0",
+              fontSize: "14px",
+            }}
           >
             📤 Upload File (Screenshot, PDF, Log)
           </h4>
@@ -455,12 +531,13 @@ const IncidentDetails = () => {
               accept="image/*,.pdf,.txt,.log"
               style={{
                 flex: 1,
-                background: "#0f1621",
-                color: "#fff",
-                border: "1px solid #334155",
+                background: colors.bgCard,
+                color: colors.text,
+                border: `1px solid ${colors.border}`,
                 padding: "8px",
                 borderRadius: "6px",
                 fontSize: "13px",
+                minWidth: "200px",
               }}
             />
             <input
@@ -468,14 +545,15 @@ const IncidentDetails = () => {
               placeholder="Description (optional)"
               value={uploadDesc}
               onChange={(e) => setUploadDesc(e.target.value)}
-              style={{ ...selectStyle, width: "250px" }}
+              style={{ ...inputStyle, width: "250px" }}
             />
             <button
               onClick={handleFileUpload}
               disabled={!selectedFile || uploading}
               style={{
                 ...buttonStyle,
-                background: !selectedFile || uploading ? "#475569" : "#00bfff",
+                background:
+                  !selectedFile || uploading ? "#475569" : colors.accent,
                 cursor: !selectedFile || uploading ? "wait" : "pointer",
               }}
             >
@@ -484,7 +562,11 @@ const IncidentDetails = () => {
           </div>
           {selectedFile && (
             <div
-              style={{ color: "#8a96b8", fontSize: "12px", marginTop: "8px" }}
+              style={{
+                color: colors.textMuted,
+                fontSize: "12px",
+                marginTop: "8px",
+              }}
             >
               Selected: <strong>{selectedFile.name}</strong> (
               {(selectedFile.size / 1024).toFixed(1)} KB)
@@ -492,12 +574,18 @@ const IncidentDetails = () => {
           )}
         </div>
 
-        {/* Add URL/Note */}
-        <div style={{ marginBottom: "16px", display: "flex", gap: "8px" }}>
+        <div
+          style={{
+            marginBottom: "16px",
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
           <select
             value={evidenceType}
             onChange={(e) => setEvidenceType(e.target.value)}
-            style={{ ...selectStyle, width: "150px" }}
+            style={{ ...inputStyle, width: "150px" }}
           >
             <option value="url">URL</option>
             <option value="note">Note</option>
@@ -507,21 +595,20 @@ const IncidentDetails = () => {
             placeholder="Description..."
             value={evidenceDesc}
             onChange={(e) => setEvidenceDesc(e.target.value)}
-            style={{ ...selectStyle, flex: 1 }}
+            style={{ ...inputStyle, flex: 1 }}
           />
           <input
             type="text"
             placeholder="URL (optional)"
             value={evidenceUrl}
             onChange={(e) => setEvidenceUrl(e.target.value)}
-            style={{ ...selectStyle, flex: 1 }}
+            style={{ ...inputStyle, flex: 1 }}
           />
           <button onClick={addEvidence} style={buttonStyle}>
             + Add
           </button>
         </div>
 
-        {/* Evidence List */}
         {incident.evidence && incident.evidence.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {incident.evidence.map((ev, idx) => {
@@ -533,11 +620,12 @@ const IncidentDetails = () => {
                   key={idx}
                   style={{
                     padding: "12px",
-                    background: "#1e293b",
+                    background: colors.bgInput,
                     borderRadius: "6px",
                     display: "flex",
                     gap: "12px",
                     alignItems: "center",
+                    flexWrap: "wrap",
                   }}
                 >
                   <span style={{ fontSize: "20px" }}>
@@ -549,8 +637,8 @@ const IncidentDetails = () => {
                       ? "🔗"
                       : "📝"}
                   </span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: "#fff", fontSize: "13px" }}>
+                  <div style={{ flex: 1, minWidth: "200px" }}>
+                    <div style={{ color: colors.text, fontSize: "13px" }}>
                       {ev.description}
                     </div>
                     {ev.url && (
@@ -558,13 +646,13 @@ const IncidentDetails = () => {
                         href={fullUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: "#00bfff", fontSize: "12px" }}
+                        style={{ color: colors.accent, fontSize: "12px" }}
                       >
                         {ev.filename || ev.url}
                       </a>
                     )}
                   </div>
-                  <div style={{ color: "#8a96b8", fontSize: "11px" }}>
+                  <div style={{ color: colors.textMuted, fontSize: "11px" }}>
                     {ev.added_at ? formatTime(ev.added_at) : ""}
                   </div>
                 </div>
@@ -572,7 +660,7 @@ const IncidentDetails = () => {
             })}
           </div>
         ) : (
-          <p style={{ color: "#8a96b8", textAlign: "center" }}>
+          <p style={{ color: colors.textMuted, textAlign: "center" }}>
             No evidence added yet
           </p>
         )}
@@ -587,13 +675,19 @@ const IncidentDetails = () => {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ background: "#1e293b" }}>
-                  <th style={thStyle}>Time</th>
-                  <th style={thStyle}>Source</th>
-                  <th style={thStyle}>Dest</th>
-                  <th style={thStyle}>Signature</th>
-                  <th style={thStyle}>Severity</th>
-                  <th style={thStyle}>MITRE</th>
+                <tr style={{ background: colors.bgInput }}>
+                  <th style={{ ...thStyle, color: colors.textMuted }}>Time</th>
+                  <th style={{ ...thStyle, color: colors.textMuted }}>
+                    Source
+                  </th>
+                  <th style={{ ...thStyle, color: colors.textMuted }}>Dest</th>
+                  <th style={{ ...thStyle, color: colors.textMuted }}>
+                    Signature
+                  </th>
+                  <th style={{ ...thStyle, color: colors.textMuted }}>
+                    Severity
+                  </th>
+                  <th style={{ ...thStyle, color: colors.textMuted }}>MITRE</th>
                 </tr>
               </thead>
               <tbody>
@@ -602,30 +696,31 @@ const IncidentDetails = () => {
                   return (
                     <tr
                       key={alert.id}
-                      style={{ borderTop: "1px solid #1e293b" }}
+                      style={{ borderTop: `1px solid ${colors.border}` }}
                     >
-                      <td style={tdStyle}>{formatTime(alert.timestamp)}</td>
-                      <td style={tdStyle}>
+                      <td style={{ ...tdStyle, color: colors.text }}>
+                        {formatTime(alert.timestamp)}
+                      </td>
+                      <td style={{ ...tdStyle, color: colors.text }}>
                         <span style={{ fontFamily: "monospace" }}>
                           {alert.src_ip || "N/A"}
                         </span>
                         {alert.src_port && (
-                          <span style={{ color: "#8a96b8", fontSize: "11px" }}>
+                          <span
+                            style={{ color: colors.textMuted, fontSize: "11px" }}
+                          >
                             :{alert.src_port}
                           </span>
                         )}
                       </td>
-                      <td style={tdStyle}>
+                      <td style={{ ...tdStyle, color: colors.text }}>
                         <span style={{ fontFamily: "monospace" }}>
                           {alert.dst_ip || "N/A"}
                         </span>
-                        {alert.dst_port && (
-                          <span style={{ color: "#8a96b8", fontSize: "11px" }}>
-                            :{alert.dst_port}
-                          </span>
-                        )}
                       </td>
-                      <td style={tdStyle}>{alert.signature || "Unknown"}</td>
+                      <td style={{ ...tdStyle, color: colors.text }}>
+                        {alert.signature || "Unknown"}
+                      </td>
                       <td style={tdStyle}>
                         <span
                           style={{
@@ -641,7 +736,7 @@ const IncidentDetails = () => {
                           {alert.severity?.toUpperCase()}
                         </span>
                       </td>
-                      <td style={tdStyle}>
+                      <td style={{ ...tdStyle, color: colors.text }}>
                         {alert.mitre_technique ? (
                           <span style={{ color: "#fbbf24" }}>
                             {alert.mitre_technique}
@@ -657,7 +752,7 @@ const IncidentDetails = () => {
             </table>
           </div>
         ) : (
-          <p style={{ color: "#8a96b8", textAlign: "center" }}>
+          <p style={{ color: colors.textMuted, textAlign: "center" }}>
             No related alerts
           </p>
         )}
@@ -666,72 +761,41 @@ const IncidentDetails = () => {
   );
 };
 
-const InfoBox = ({ label, value }: { label: string; value: string }) => (
-  <div style={{ background: "#1e293b", padding: "12px", borderRadius: "6px" }}>
-    <div style={{ color: "#8a96b8", fontSize: "11px", marginBottom: "4px" }}>
+const InfoBox = ({
+  label,
+  value,
+  colors,
+}: {
+  label: string;
+  value: string;
+  colors: any;
+}) => (
+  <div
+    style={{
+      background: colors.bgInput,
+      padding: "12px",
+      borderRadius: "6px",
+    }}
+  >
+    <div
+      style={{
+        color: colors.textMuted,
+        fontSize: "11px",
+        marginBottom: "4px",
+      }}
+    >
       {label}
     </div>
-    <div style={{ color: "#fff", fontSize: "13px", fontWeight: 500 }}>{value}</div>
+    <div
+      style={{
+        color: colors.text,
+        fontSize: "13px",
+        fontWeight: 500,
+      }}
+    >
+      {value}
+    </div>
   </div>
 );
-
-const cardStyle: React.CSSProperties = {
-  background: "#0f1621",
-  border: "1px solid #1e293b",
-  borderRadius: "8px",
-  padding: "20px",
-  marginBottom: "16px",
-};
-
-const sectionHeader: React.CSSProperties = {
-  color: "#00bfff",
-  fontSize: "16px",
-  fontWeight: 600,
-  marginBottom: "16px",
-  marginTop: 0,
-};
-
-const labelStyle: React.CSSProperties = {
-  color: "#8a96b8",
-  fontSize: "12px",
-  marginBottom: "6px",
-  display: "block",
-};
-
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  background: "#1e293b",
-  color: "#fff",
-  border: "1px solid #334155",
-  padding: "8px 12px",
-  borderRadius: "6px",
-  fontSize: "13px",
-};
-
-const buttonStyle: React.CSSProperties = {
-  background: "#00bfff",
-  color: "#000",
-  border: "none",
-  padding: "8px 16px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: "13px",
-};
-
-const thStyle: React.CSSProperties = {
-  padding: "10px 12px",
-  textAlign: "left",
-  color: "#8a96b8",
-  fontSize: "11px",
-  fontWeight: 600,
-  textTransform: "uppercase",
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "10px 12px",
-  fontSize: "13px",
-  color: "#fff",
-};
 
 export default IncidentDetails;

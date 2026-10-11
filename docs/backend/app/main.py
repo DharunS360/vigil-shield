@@ -15,6 +15,7 @@ from app.api.v1 import (
     reports,
     enrichment,
     detection,
+    casebook,
 )
 from app.websocket_manager import manager
 
@@ -50,6 +51,7 @@ app.include_router(mitre.router)
 app.include_router(reports.router)
 app.include_router(enrichment.router)
 app.include_router(detection.router)
+app.include_router(casebook.router)
 
 # ============================================================
 # Static Files - Uploads
@@ -86,7 +88,16 @@ def root():
         "status": "running",
         "docs": "/docs",
         "websocket": "ws://localhost:8000/ws",
-        "uploads": "/uploads",
+        "features": [
+            "alerts",
+            "incidents",
+            "correlation",
+            "mitre",
+            "reports",
+            "enrichment",
+            "detection",
+            "casebook",
+        ],
     }
 
 

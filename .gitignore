@@ -1,0 +1,76 @@
+# === Python ===
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# === Environment (CRITICAL) ===
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# === Database (CRITICAL) ===
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# === Logs ===
+logs/
+*.log
+log/
+
+# === Data (large files) ===
+data/*.pcap
+data/*.pcapng
+data/*.csv
+data/*.json.bak
+
+# === Node ===
+node_modules/
+dist/
+build/
+.vite/
+.cache/
+frontend/build/
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Secrets ===
+*.key
+*.pem
+secrets.json
+credentials.json
+
+# === Temp ===
+tmp/
+temp/
+*.tmp
+
+# === Python venv locations ===
+docs/backend/venv/
+venv/

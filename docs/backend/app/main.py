@@ -29,12 +29,16 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS Middleware
+# CORS Middleware (Updated to allow 3001, 3002)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
         "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3002",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -56,7 +60,7 @@ app.include_router(casebook.router)
 # ============================================================
 # Static Files - Uploads
 # ============================================================
-UPLOAD_DIR = Path(__file__).parent.parent.parent / "uploads"
+UPLOAD_DIR = Path(__file__).parent.parent.parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 

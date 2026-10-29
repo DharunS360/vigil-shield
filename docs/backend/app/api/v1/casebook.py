@@ -1,4 +1,4 @@
-"""
+﻿"""
 Vigil Shield - Casebook API
 Serves SOC casebook cases and IR playbooks.
 """
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/v1/casebook", tags=["casebook"])
 # ============================================================
 # Casebook Directory - FULL PATH
 # ============================================================
-CASEBOOK_DIR = Path(r"E:\Projects\VigilShield-SIEM\casebook")
+CASEBOOK_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent.parent / "casebook"
 
 
 def parse_case_metadata(content: str) -> Dict[str, Any]:
@@ -218,3 +218,4 @@ def get_playbook(name: str):
 
     content = pb_file.read_text(encoding="utf-8")
     return {"status": "success", "name": name, "content": content}
+

@@ -58,6 +58,7 @@ const IncidentDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
   const [newNote, setNewNote] = useState("");
   const [evidenceDesc, setEvidenceDesc] = useState("");
   const [evidenceType, setEvidenceType] = useState("url");
@@ -92,6 +93,32 @@ const IncidentDetails = () => {
       alert("❌ Update failed: " + (err?.message || "Unknown"));
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const generateIncidentReport = async () => {
+    setGeneratingReport(true);
+    try {
+      const res = await apiClient.post(`/incidents/${id}/report`);
+      const filename = res.data.filename;
+
+      const downloadUrl = `http://localhost:8000/api/v1/reports/download/${filename}`;
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = filename;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      alert("✅ Incident report generated and downloaded!");
+    } catch (err: any) {
+      alert(
+        "❌ Report generation failed: " +
+          (err?.response?.data?.detail || err?.message || "Unknown")
+      );
+    } finally {
+      setGeneratingReport(false);
     }
   };
 
@@ -310,20 +337,38 @@ const IncidentDetails = () => {
             {incident.title}
           </p>
         </div>
-        <span
-          style={{
-            background: sevColor.bg,
-            color: sevColor.text,
-            border: `1px solid ${sevColor.border}`,
-            padding: "8px 16px",
-            borderRadius: "6px",
-            fontSize: "13px",
-            fontWeight: 700,
-            textTransform: "uppercase",
-          }}
-        >
-          {incident.severity}
-        </span>
+        <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={generateIncidentReport}
+            disabled={generatingReport}
+            style={{
+              background: generatingReport ? "#475569" : "#22c55e",
+              color: "#fff",
+              border: "none",
+              padding: "10px 20px",
+              borderRadius: "6px",
+              cursor: generatingReport ? "wait" : "pointer",
+              fontWeight: 600,
+              fontSize: "14px",
+            }}
+          >
+            {generatingReport ? "⏳ Generating..." : "📄 Generate Report"}
+          </button>
+          <span
+            style={{
+              background: sevColor.bg,
+              color: sevColor.text,
+              border: `1px solid ${sevColor.border}`,
+              padding: "8px 16px",
+              borderRadius: "6px",
+              fontSize: "13px",
+              fontWeight: 700,
+              textTransform: "uppercase",
+            }}
+          >
+            {incident.severity}
+          </span>
+        </div>
       </div>
 
       {/* Status & Triage */}
@@ -446,7 +491,14 @@ const IncidentDetails = () => {
       {/* Timeline */}
       <div style={cardStyle}>
         <h3 style={sectionHeader}>📅 Timeline</h3>
-        <div style={{ marginBottom: "16px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <div
+          style={{
+            marginBottom: "16px",
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
           <input
             type="text"
             placeholder="Add timeline note..."
@@ -484,9 +536,7 @@ const IncidentDetails = () => {
                 >
                   {formatTime(entry.time)}
                 </div>
-                <div
-                  style={{ flex: 1, color: colors.text, fontSize: "13px" }}
-                >
+                <div style={{ flex: 1, color: colors.text, fontSize: "13px" }}>
                   {entry.event}
                 </div>
                 <div style={{ color: colors.textMuted, fontSize: "12px" }}>
@@ -707,7 +757,10 @@ const IncidentDetails = () => {
                         </span>
                         {alert.src_port && (
                           <span
-                            style={{ color: colors.textMuted, fontSize: "11px" }}
+                            style={{
+                              color: colors.textMuted,
+                              fontSize: "11px",
+                            }}
                           >
                             :{alert.src_port}
                           </span>

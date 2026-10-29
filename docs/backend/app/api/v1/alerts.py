@@ -13,6 +13,8 @@ import asyncio
 from app.core.database import get_db
 from app.models.alert import Alert
 from app.services.ioc_enrichment import ioc_enricher
+from app.websocket_manager import broadcast_event
+from app.services import detection_engine
 
 router = APIRouter(prefix="/api/v1/alerts", tags=["alerts"])
 
@@ -67,7 +69,7 @@ async def auto_enrich_alert(alert_id: int, ip: str, db: Session):
 def list_alerts(
     severity: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
-    limit: int = Query(100, le=500),
+    limit: int = Query(500, le=1000), # ✅ Increased from 100 to 500
     offset: int = Query(0),
     db: Session = Depends(get_db),
 ):
@@ -168,6 +170,21 @@ async def create_alert(
         db.add(new_alert)
         db.commit()
         db.refresh(new_alert)
+
+        # Broadcast live event
+        try:
+            asyncio.create_task(broadcast_event("alert_created", new_alert.to_dict()))
+        except Exception:
+            pass
+
+        # Run detection engine (auto severity / MITRE mapping)
+        try:
+            if hasattr(detection_engine, "run_detection"):
+                detection_engine.run_detection(db, new_alert)
+            elif hasattr(detection_engine, "detect"):
+                detection_engine.detect(db, new_alert)
+        except Exception as e:
+            print(f"Detection engine error: {e}")
 
         # Schedule auto-enrichment as background task
         if payload.auto_enrich and new_alert.src_ip:

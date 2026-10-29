@@ -14,26 +14,24 @@ class Incident(Base):
     status = Column(String(30), index=True, default="open")
     priority = Column(String(20), default="P3")
 
-    # Assignment & Triage
+    risk_score = Column(Float, default=0.0)
+    confidence = Column(Float, default=0.5)
+
     assignee = Column(String(100), nullable=True)
     triage_decision = Column(String(20), nullable=True)
     triage_notes = Column(Text, nullable=True)
 
-    # Correlation
     rule_id = Column(String(50), nullable=True)
     rule_name = Column(String(200), nullable=True)
     correlation_data = Column(JSON, nullable=True)
 
-    # MITRE
     mitre_tactics = Column(JSON, nullable=True)
     mitre_techniques = Column(JSON, nullable=True)
 
-    # NEW: Timeline & Evidence
-    timeline = Column(JSON, nullable=True)       # List of {time, event, analyst}
-    evidence = Column(JSON, nullable=True)       # List of {type, url, description}
+    timeline = Column(JSON, nullable=True)
+    evidence = Column(JSON, nullable=True)
     playbook_ref = Column(String(200), nullable=True)
 
-    # Timeline
     detected_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -49,6 +47,8 @@ class Incident(Base):
             "severity": self.severity,
             "status": self.status,
             "priority": self.priority,
+            "risk_score": self.risk_score or 0.0,
+            "confidence": self.confidence or 0.0,
             "assignee": self.assignee,
             "triage_decision": self.triage_decision,
             "triage_notes": self.triage_notes,
